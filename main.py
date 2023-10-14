@@ -5,6 +5,7 @@ from PIL import Image, ImageTk
 import datetime
 import threading
 import webbrowser
+import os
 
 class ImageLayoutApp:
 	def __init__(self, root):
@@ -255,9 +256,12 @@ class ImageLayoutApp:
 
 	def generate_pdf_filename(self):
 		now = datetime.datetime.now()
-		timestamp = now.strftime("%Y-%m-%d")
+		timestamp = now.strftime("%Y-%m-%d_%H-%M-%S")
 		layout = self.layout_var.get()
-		return f"{timestamp}_{layout}_output.pdf"
+		pdf_folder = "pdf"  # Nome della cartella in cui salvare il PDF
+		pdf_filename = f"{timestamp}_{layout}_output.pdf"
+		pdf_path = os.path.join(pdf_folder, pdf_filename)  # Unisci il percorso della cartella e il nome del file
+		return pdf_path
 
 	def start(self):
 		self.root.mainloop()
