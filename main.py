@@ -1,8 +1,10 @@
 import tkinter as tk
-from tkinter import filedialog
-from tkinter import ttk
+from tkinter import filedialog, ttk, messagebox
 from fpdf import FPDF
 from PIL import Image, ImageTk
+import datetime
+import threading
+
 
 
 class ImageLayoutApp:
@@ -10,6 +12,8 @@ class ImageLayoutApp:
 		self.root = root
 		self.root.title("App Layout Immagini")
 		self.root.minsize(800, 600)  # Imposta le dimensioni minime della finestra principale
+
+		self._resizing = False
 
 		# Definizione delle variabili
 		self.layout_var = tk.StringVar()
@@ -58,24 +62,27 @@ class ImageLayoutApp:
 		model_window.geometry("800x600")
 		model_window.resizable(True, True)
 
-		self.icon_home = tk.PhotoImage(file="icon/home.png")
-		self.icon_back = tk.PhotoImage(file="icon/back.png")
+		self._last_model_window_size = (0, 0)  # (width, height)
+
+		self.create_icon_menu(model_window)
 
 		rows, cols = map(int, layout.split('x'))
 		self.image_preview_frames = []
 
 		for i in range(rows):
-			model_window.grid_rowconfigure(i, weight=1)
+			model_window.grid_rowconfigure(i+1, weight=1)
 			for j in range(cols):
 				model_window.grid_columnconfigure(j, weight=1)
 				
 				cell_frame = ttk.Frame(model_window, borderwidth=2, relief="solid")
-				cell_frame.grid(row=i, column=j, padx=10, pady=10, sticky="nsew")
+				cell_frame.grid(row=i+1, column=j, padx=10, pady=10, sticky="nsew")
 				
-				# Configura la griglia interna del cell_frame
+				# Configura la griglia interna del cell_frame				
 				cell_frame.grid_rowconfigure(0, weight=0)  # Peso 0 per il pulsante
-				cell_frame.grid_rowconfigure(1, weight=1)  # Peso 1 per l'immagine
+				cell_frame.grid_rowconfigure(1, weight=3)  # Peso maggiore per l'immagine
+				cell_frame.grid_rowconfigure(2, weight=1)  # Peso minore per i campi di inserimento testo
 				cell_frame.grid_columnconfigure(0, weight=1)
+
 				
 				# Pulsante per caricare un'immagine
 				load_image_button = ttk.Button(cell_frame, text="Carica Immagine", command=lambda i=i, j=j: self.load_image(i, j))
@@ -89,14 +96,14 @@ class ImageLayoutApp:
 
 		# Pulsante per generare il PDF
 		generate_pdf_button = ttk.Button(model_window, text="Genera PDF", command=self.generate_pdf)
-		generate_pdf_button.grid(row=rows, column=0, columnspan=cols, pady=10)
+		generate_pdf_button.grid(row=rows+1, column=0, columnspan=cols, pady=10)
 
 		# Associa la funzione personalizzata all'evento di chiusura della finestra di modello
 		model_window.protocol("WM_DELETE_WINDOW", lambda: self.on_model_window_close(model_window))
 		
 		self.secondary_windows.append(model_window)
 		self.create_menu(model_window)
-		self.create_icon_menu(model_window)
+		
 
 
 	def on_model_window_close(self, model_window):
@@ -130,9 +137,10 @@ class ImageLayoutApp:
 					self.image_paths[index] = file_path
 					self.update_image_preview(row, col + i, file_path, cols)
 
-
-
 	def update_image_preview(self, row, col, image_path, cols):
+		if image_path is None:
+			return
+
 		button_frame, preview_frame = self.image_preview_frames[row * cols + col]
 		
 		# Trova l'eventuale label dell'anteprima dell'immagine esistente
@@ -145,14 +153,10 @@ class ImageLayoutApp:
 		# Carica la nuova immagine
 		original_image = Image.open(image_path)
 		
-		# Calcola le nuove dimensioni mantenendo l'aspect ratio
-		base_width = preview_frame.winfo_width()  # Larghezza desiderata dell'anteprima
-		w_percent = base_width / float(original_image.width)
-		h_size = int(float(original_image.height) * float(w_percent))
+		# Ridimensiona l'immagine con PIL
+		resized_image = original_image.resize((100, 100), Image.LANCZOS)  # Ad esempio, 100x100
 		
-		# Ridimensiona l'immagine
-		resized_image = original_image.resize((base_width, h_size), Image.LANCZOS)
-		
+		# Converte l'immagine ridimensionata in PhotoImage
 		image_preview = ImageTk.PhotoImage(resized_image)
 		
 		if image_label:
@@ -163,12 +167,53 @@ class ImageLayoutApp:
 			# Crea un nuovo label per l'anteprima dell'immagine
 			image_label = ttk.Label(preview_frame, image=image_preview)
 			image_label.image = image_preview
-			image_label.pack()
+			image_label.grid(row=1, column=0, columnspan=2, sticky="nsew")  # Centra l'immagine
 		
 		# Salva l'immagine originale PIL nel label
 		image_label.original_image = original_image
 
+		# Configura i pesi delle righe
+		preview_frame.grid_rowconfigure(1, weight=1)  # Peso maggiore per l'immagine
+		preview_frame.grid_rowconfigure(2, weight=0)  # Peso minore per i campi di inserimento
+
+		# Configura i pesi delle colonne per i campi di inserimento
+		preview_frame.grid_columnconfigure(0, weight=6)  # 60%
+		preview_frame.grid_columnconfigure(1, weight=4)  # 40%
+
+		# Aggiungi campi di inserimento testo per titolo e prezzo con placeholder
+		title_entry = tk.Entry(preview_frame, fg='grey')
+		title_entry.insert(0, "Titolo")
+		title_entry.bind("<FocusIn>", lambda e: self.handle_placeholder(e, "Titolo"))
+		title_entry.bind("<FocusOut>", lambda e: self.handle_placeholder(e, "Titolo"))
+		title_entry.grid(row=2, column=0, sticky="ew", pady=5, padx=(0, 5))
+
+		price_entry = tk.Entry(preview_frame, fg='grey')
+		price_entry.insert(0, "Prezzo")
+		price_entry.bind("<FocusIn>", lambda e: self.handle_placeholder(e, "Prezzo"))
+		price_entry.bind("<FocusOut>", lambda e: self.handle_placeholder(e, "Prezzo"))
+		price_entry.grid(row=2, column=1, sticky="ew", pady=5, padx=(5, 0))
+
+
+
+	def handle_placeholder(self, event, placeholder_text):
+		entry_widget = event.widget
+		if entry_widget.get() == placeholder_text:
+			entry_widget.delete(0, tk.END)
+			entry_widget.config(fg='black')
+
+
 	def create_icon_menu(self, window):
+		icon_width = 30
+		icon_height = 30
+
+		original_icon_home = Image.open("icon/home.png").convert("RGBA")
+		resized_icon_home = original_icon_home.resize((icon_width, icon_height), Image.LANCZOS)
+		self.icon_home = ImageTk.PhotoImage(resized_icon_home)
+
+		original_icon_back = Image.open("icon/back.png")
+		resized_icon_back = original_icon_back.resize((icon_width, icon_height), Image.LANCZOS)
+		self.icon_back = ImageTk.PhotoImage(resized_icon_back)
+
 		icon_menu_frame = ttk.Frame(window, height=10)
 		icon_menu_frame.grid(row=0, column=0, columnspan=2, sticky="ew")  # Usiamo grid invece di pack
 
@@ -202,8 +247,8 @@ class ImageLayoutApp:
 			win.destroy()
 		self.secondary_windows = []
 
+
 	def show_previous_frame(self):
-		# Chiudi la finestra corrente e mostra la precedente, se esiste
 		if self.secondary_windows:
 			current_window = self.secondary_windows.pop()
 			current_window.destroy()
@@ -211,6 +256,7 @@ class ImageLayoutApp:
 				self.secondary_windows[-1].deiconify()
 			else:
 				self.root.deiconify()
+
 
 	def resize_image_preview(self, row, col, cols):
 		button_frame, preview_frame = self.image_preview_frames[row * cols + col]
@@ -253,7 +299,6 @@ class ImageLayoutApp:
 			image_label.configure(image=image_preview)
 			image_label.image = image_preview  # Salva il riferimento all'oggetto PhotoImage
 
-
 	def generate_pdf(self):
 		layout = self.layout_var.get()
 		rows, cols = map(int, layout.split('x'))
@@ -267,15 +312,41 @@ class ImageLayoutApp:
 					index = i * (rows * cols) + r * cols + c
 					image_path = self.image_paths[index]
 					if image_path:
-						pdf.image(image_path, x=c * 90, y=r * 90 + 20, w=90)
+						# Apri l'immagine con PIL
+						img = Image.open(image_path)
+						
+						# Calcola le nuove dimensioni per l'immagine
+						target_width = 90  # Larghezza desiderata
+						aspect_ratio = img.width / img.height
+						target_height = target_width / aspect_ratio
+						
+						# Ridimensiona l'immagine mantenendo l'aspect ratio
+						img = img.resize((int(target_width), int(target_height)), Image.LANCZOS)
+						
+						# Calcola le coordinate x e y per centrare l'immagine
+						x = c * 90 + (90 - img.width) / 2
+						y = r * 90 + 20 + (90 - img.height) / 2  # Aggiungi 20 per la riga di testo
+						
+						# Aggiungi l'immagine al PDF
+						pdf.image(image_path, x=x, y=y, w=img.width, h=img.height)
+						
+						# Aggiungi il testo sotto l'immagine (titolo e prezzo)
 						pdf.set_font("Arial", size=12)
-						pdf.text(c * 90, r * 90 + 110, "Testo:")
+						pdf.text(c * 90, r * 90 + 110, "Titolo:")
 						pdf.text(c * 90, r * 90 + 130, "Prezzo:")
 
 		pdf_file_name = "output.pdf"
 		pdf.output(pdf_file_name)
-		messagebox.showinfo(
-			"PDF Creato", f"PDF creato con successo come {pdf_file_name}.")
+		messagebox.showinfo("PDF Creato", f"PDF creato con successo come {pdf_file_name}.")
+
+
+
+	def generate_pdf_filename(self):
+		now = datetime.datetime.now()
+		timestamp = now.strftime("%Y-%m-%d")
+		layout = self.layout_var.get()
+		return f"{timestamp}_{layout}_output.pdf"
+
 
 	def start(self):
 		self.root.mainloop()
