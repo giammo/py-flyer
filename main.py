@@ -169,16 +169,21 @@ class ImageLayoutApp:
 		image_label.original_image = original_image
 
 	def create_icon_menu(self, window):
-		icon_menu_frame = ttk.Frame(window)
-		icon_menu_frame.grid(row=0, column=0, sticky="ew", columnspan=2)  # Adatta il columnspan al numero di colonne nella tua griglia
-		
+		icon_menu_frame = ttk.Frame(window, height=10)
+		icon_menu_frame.grid(row=0, column=0, columnspan=2, sticky="ew")  # Usiamo grid invece di pack
+
 		home_button = ttk.Label(icon_menu_frame, image=self.icon_home, cursor="hand2")
 		home_button.grid(row=0, column=0, padx=2)
 		home_button.bind("<Button-1>", lambda e: self.show_main_frame())
-		
+
 		back_button = ttk.Label(icon_menu_frame, image=self.icon_back, cursor="hand2")
 		back_button.grid(row=0, column=1, padx=2)
 		back_button.bind("<Button-1>", lambda e: self.show_previous_frame())
+
+		# Configura la propagazione dei pesi dei widget
+		window.grid_rowconfigure(0, weight=0)  # Riga 0 (menu icone) con peso 0
+		window.grid_columnconfigure(0, weight=1)  # Colonna 0 con peso 1
+		window.grid_columnconfigure(1, weight=1)  # Colonna 1 con peso 1
 
 	def create_menu(self, window):
 		menu_bar = tk.Menu(window)
@@ -206,7 +211,6 @@ class ImageLayoutApp:
 				self.secondary_windows[-1].deiconify()
 			else:
 				self.root.deiconify()
-
 
 	def resize_image_preview(self, row, col, cols):
 		button_frame, preview_frame = self.image_preview_frames[row * cols + col]
