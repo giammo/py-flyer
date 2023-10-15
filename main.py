@@ -46,9 +46,9 @@ class ImageLayoutApp:
 		self.image_paths = [None] * total_cells
 
 		# Pulsante per aprire la finestra di modello
-		open_model_button = ttk.Button(
-			main_frame, text="Apri Finestra di Modello", command=self.open_model_window)
+		open_model_button = ttk.Button(main_frame, text="Apri Finestra di Modello", command=self.open_model_window)
 		open_model_button.grid(row=1, column=0, columnspan=2, pady=10)
+
 
 	def open_model_window(self):
 		layout = self.layout_var.get()
@@ -94,6 +94,9 @@ class ImageLayoutApp:
 
 		generate_pdf_button = ttk.Button(model_window, text="Genera PDF", command=self.generate_pdf)
 		generate_pdf_button.grid(row=rows+1, column=0, columnspan=cols, pady=10)
+
+		self.progress = ttk.Progressbar(model_window, orient="horizontal", length=300, mode="determinate")
+		self.progress.grid(row=rows+2, column=0, columnspan=cols, pady=10)
 
 		model_window.protocol("WM_DELETE_WINDOW", lambda: self.on_model_window_close(model_window))
 
@@ -235,7 +238,12 @@ class ImageLayoutApp:
 
 	def generate_pdf(self):
 		
+		total_images = sum(1 for path in self.image_paths if path)
+		self.progress["value"] = 0
+		self.progress["maximum"] = total_images
+
 		def generate_pdf_worker():
+			rows, cols = map(int, self.layout_var.get().split('x'))
 			PADDING = 5  # padding in mm
 			MARGIN = 10  # margine in mm
 			CELL_HEIGHT = ((297 - 2 * MARGIN) / rows) - 2 * PADDING
@@ -300,14 +308,22 @@ class ImageLayoutApp:
 							pdf.text(x, text_y, title)
 							pdf.set_font("Arial", "B", size=12)  # Grassetto
 							pdf.text(x + pdf.get_string_width(title) + 5, text_y, price)
+							
+							# Aggiorna la barra di progresso
+							self.progress["value"] += 1
+							self.root.update()  # Questo aggiorna la GUI e fa avanzare la barra di progresso
+
 
 			pdf.output(pdf_file_name)
 			result = messagebox.askyesno("PDF Creato", f"PDF creato come {pdf_file_name}.\nVuoi aprirlo?")
 			if result:
 				webbrowser.open(pdf_file_name)
+			
+			# Azzera la barra di progresso
+			self.progress["value"] = 0
+			self.root.update()  # Questo aggiorna la GUI e azzera la barra di progresso
 
 
-		rows, cols = map(int, self.layout_var.get().split('x'))
 		pdf_thread = threading.Thread(target=generate_pdf_worker)
 		pdf_thread.start()
 
