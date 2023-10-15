@@ -19,7 +19,9 @@ class ImageLayoutApp:
 		self.layout_var = tk.StringVar()
 		self.layout_var.set("2x2")
 		self.image_paths = [None] * 4  # 4 slots per le immagini
-		self.secondary_windows = []
+		self.secondary_windows = []  # Lista delle finestre secondarie aperte (finestra di modello)
+		self.titles = {}  # Inizializza l'attributo titles come un dizionario vuoto
+		self.prices = {}  # Inizializza l'attributo prices come un dizionario vuoto
 
 		# Frame principale
 		main_frame = ttk.Frame(root)
@@ -165,6 +167,13 @@ class ImageLayoutApp:
 		price_entry.bind("<FocusOut>", lambda e: self.handle_placeholder(e, "Prezzo"))
 		price_entry.grid(row=2, column=1, sticky="ew", pady=5, padx=(5, 0))
 
+		# Salva gli input di titolo e prezzo
+		self.titles[row * cols + col] = title_entry
+		self.prices[row * cols + col] = price_entry
+
+
+
+
 	def handle_placeholder(self, event, placeholder_text):
 		entry_widget = event.widget
 		if entry_widget.get() == placeholder_text:
@@ -223,11 +232,14 @@ class ImageLayoutApp:
 			else:
 				self.root.deiconify()
 
+
 	def generate_pdf(self):
 		def generate_pdf_worker():
+			PADDING = 5  # padding in mm
+			MARGIN = 10  # margine in mm
 			pdf_file_name = self.generate_pdf_filename()
-			pdf = FPDF()
-			pdf.set_auto_page_break(auto=True, margin=15)
+			pdf = FPDF(format='A4')
+			pdf.set_auto_page_break(auto=True, margin=MARGIN)
 
 			for i in range(len(self.image_paths) // (rows * cols)):
 				pdf.add_page()
@@ -236,23 +248,46 @@ class ImageLayoutApp:
 						index = i * (rows * cols) + r * cols + c
 						image_path = self.image_paths[index]
 						if image_path:
+							# Calcola le dimensioni e le posizioni tenendo conto dei margini
+							x = MARGIN + c * ((210 - 2 * MARGIN) / cols) + PADDING
+							y = MARGIN + r * ((297 - 2 * MARGIN) / rows) + PADDING
+							w = ((210 - 2 * MARGIN) / cols) - 2 * PADDING
+							h = ((297 - 2 * MARGIN) / rows) - 2 * PADDING
+
+							# Mantieni l'aspect ratio
 							img = Image.open(image_path)
-							width, height = img.size
-							img = img.resize((int(width), int(height)), Image.LANCZOS)
-							pdf.image(image_path, x=c * 90, y=r * 90 + 20, w=90)
+							img_w, img_h = img.size
+							aspect_ratio = img_w / img_h
+							new_w = w
+							new_h = w / aspect_ratio
+							if new_h > h:
+								new_h = h
+								new_w = h * aspect_ratio
+							x_centered = x + (w - new_w) / 2
+							y_centered = y + (h - new_h) / 2
+
+							pdf.image(image_path, x=x_centered, y=y_centered, w=new_w, h=new_h)
+
+							# Ottieni il titolo e il prezzo
+							title = self.titles[r * cols + c].get()
+							price = self.prices[r * cols + c].get()
+
+							# Stampa il titolo e il prezzo
 							pdf.set_font("Arial", size=12)
-							pdf.text(c * 90, r * 90 + 110, "Titolo:")
-							pdf.text(c * 90, r * 90 + 130, "Prezzo:")
+							pdf.text(x, y_centered + new_h + 5, title)
+							pdf.set_font("Arial", "B", size=12)  # Grassetto
+							pdf.text(x + pdf.get_string_width(title) + 5, y_centered + new_h + 5, price)
 
 			pdf.output(pdf_file_name)
-			# Aggiungi il pulsante "Apri PDF" nel messagebox
 			result = messagebox.askyesno("PDF Creato", f"PDF creato come {pdf_file_name}.\nVuoi aprirlo?")
 			if result:
-				webbrowser.open(pdf_file_name)  # Apre il PDF con il visualizzatore predefinito
+				webbrowser.open(pdf_file_name)
 
 		rows, cols = map(int, self.layout_var.get().split('x'))
 		pdf_thread = threading.Thread(target=generate_pdf_worker)
 		pdf_thread.start()
+
+
 
 	def generate_pdf_filename(self):
 		now = datetime.datetime.now()
