@@ -257,7 +257,7 @@ class ImageLayoutApp:
 					for c in range(cols):
 						index = i * (rows * cols) + r * cols + c
 						image_path = self.image_paths[index]
-						
+
 						if image_path:
 							x = MARGIN + c * CELL_WIDTH + PADDING
 							y = MARGIN + r * CELL_HEIGHT + PADDING
@@ -283,8 +283,9 @@ class ImageLayoutApp:
 								new_w = new_w_w
 								new_h = new_h_w
 
+							# Calcola le coordinate x e y per centrare l'immagine nella cella
 							x_centered = x + (CELL_WIDTH - new_w) / 2
-							y_centered = y
+							y_centered = y + (IMAGE_AREA_HEIGHT - new_h) / 2
 
 							pdf.image(image_path, x=x_centered, y=y_centered, w=new_w, h=new_h)
 
