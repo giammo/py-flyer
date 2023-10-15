@@ -234,39 +234,60 @@ class ImageLayoutApp:
 
 
 	def generate_pdf(self):
+		
 		def generate_pdf_worker():
 			PADDING = 5  # padding in mm
 			MARGIN = 10  # margine in mm
+			CELL_HEIGHT = ((297 - 2 * MARGIN) / rows) - 2 * PADDING
+			CELL_WIDTH = ((210 - 2 * MARGIN) / cols) - 2 * PADDING
+			TEXT_AREA_HEIGHT = 15  # altezza in mm per l'area del testo
+			IMAGE_AREA_HEIGHT = CELL_HEIGHT - TEXT_AREA_HEIGHT
+
 			pdf_file_name = self.generate_pdf_filename()
 			pdf = FPDF(format='A4')
 			pdf.set_auto_page_break(auto=True, margin=MARGIN)
 
 			for i in range(len(self.image_paths) // (rows * cols)):
+				images_to_print = [img for img in self.image_paths[i*(rows*cols):(i+1)*(rows*cols)] if img]
+				if not images_to_print:
+					continue
+
 				pdf.add_page()
 				for r in range(rows):
 					for c in range(cols):
 						index = i * (rows * cols) + r * cols + c
 						image_path = self.image_paths[index]
+						
 						if image_path:
-							# Calcola le dimensioni e le posizioni tenendo conto dei margini
-							x = MARGIN + c * ((210 - 2 * MARGIN) / cols) + PADDING
-							y = MARGIN + r * ((297 - 2 * MARGIN) / rows) + PADDING
-							w = ((210 - 2 * MARGIN) / cols) - 2 * PADDING
-							h = ((297 - 2 * MARGIN) / rows) - 2 * PADDING
+							x = MARGIN + c * CELL_WIDTH + PADDING
+							y = MARGIN + r * CELL_HEIGHT + PADDING
 
 							# Mantieni l'aspect ratio
 							img = Image.open(image_path)
 							img_w, img_h = img.size
 							aspect_ratio = img_w / img_h
-							new_w = w
-							new_h = w / aspect_ratio
-							if new_h > h:
-								new_h = h
-								new_w = h * aspect_ratio
-							x_centered = x + (w - new_w) / 2
-							y_centered = y + (h - new_h) / 2
+
+							# Calcola le dimensioni basate sull'altezza
+							new_w_h = IMAGE_AREA_HEIGHT * aspect_ratio
+							new_h_h = IMAGE_AREA_HEIGHT
+
+							# Calcola le dimensioni basate sulla larghezza
+							new_w_w = CELL_WIDTH
+							new_h_w = CELL_WIDTH / aspect_ratio
+
+							# Utilizza le dimensioni più piccole
+							if new_w_h <= CELL_WIDTH:
+								new_w = new_w_h
+								new_h = new_h_h
+							else:
+								new_w = new_w_w
+								new_h = new_h_w
+
+							x_centered = x + (CELL_WIDTH - new_w) / 2
+							y_centered = y
 
 							pdf.image(image_path, x=x_centered, y=y_centered, w=new_w, h=new_h)
+
 
 							# Ottieni il titolo e il prezzo
 							title = self.titles[r * cols + c].get()
@@ -274,14 +295,16 @@ class ImageLayoutApp:
 
 							# Stampa il titolo e il prezzo
 							pdf.set_font("Arial", size=12)
-							pdf.text(x, y_centered + new_h + 5, title)
+							text_y = y + IMAGE_AREA_HEIGHT + 5
+							pdf.text(x, text_y, title)
 							pdf.set_font("Arial", "B", size=12)  # Grassetto
-							pdf.text(x + pdf.get_string_width(title) + 5, y_centered + new_h + 5, price)
+							pdf.text(x + pdf.get_string_width(title) + 5, text_y, price)
 
 			pdf.output(pdf_file_name)
 			result = messagebox.askyesno("PDF Creato", f"PDF creato come {pdf_file_name}.\nVuoi aprirlo?")
 			if result:
 				webbrowser.open(pdf_file_name)
+
 
 		rows, cols = map(int, self.layout_var.get().split('x'))
 		pdf_thread = threading.Thread(target=generate_pdf_worker)
