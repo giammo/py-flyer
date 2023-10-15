@@ -245,7 +245,7 @@ class ImageLayoutApp:
 		def generate_pdf_worker():
 			rows, cols = map(int, self.layout_var.get().split('x'))
 			PADDING = 5  # padding in mm
-			MARGIN = 10  # margine in mm
+			MARGIN = 15  # margine in mm
 			CELL_HEIGHT = ((297 - 2 * MARGIN) / rows) - 2 * PADDING
 			CELL_WIDTH = ((210 - 2 * MARGIN) / cols) - 2 * PADDING
 			TEXT_AREA_HEIGHT = 15  # altezza in mm per l'area del testo
@@ -267,8 +267,9 @@ class ImageLayoutApp:
 						image_path = self.image_paths[index]
 
 						if image_path:
-							x = MARGIN + c * CELL_WIDTH + PADDING
-							y = MARGIN + r * CELL_HEIGHT + PADDING
+							SPACING = 5  # spaziatura in mm tra le celle
+							x = MARGIN + c * (CELL_WIDTH + SPACING) + PADDING
+							y = MARGIN + r * (CELL_HEIGHT + SPACING) + PADDING
 
 							# Mantieni l'aspect ratio
 							img = Image.open(image_path)
