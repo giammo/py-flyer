@@ -6,6 +6,7 @@ import datetime
 import threading
 import webbrowser
 import os
+import json
 from pyupdater.client import Client
 from client_config import ClientConfig
 
@@ -66,7 +67,11 @@ class ImageLayoutApp:
 
 	def check_for_updates(self):
 		client = Client(ClientConfig())
-		client.refresh()
+		try:
+			client.refresh()
+		except json.decoder.JSONDecodeError:
+			messagebox.showerror("Errore", "Si è verificato un errore durante il controllo degli aggiornamenti. Riprova più tardi.")
+			return  # Interrompe l'esecuzione della funzione qui
 
 		app_update = client.update_check(ClientConfig.APP_NAME, ClientConfig.APP_VERSION)
 
@@ -204,9 +209,6 @@ class ImageLayoutApp:
 		self.titles[row * cols + col] = title_entry
 		self.prices[row * cols + col] = price_entry
 
-
-
-
 	def handle_placeholder(self, event, placeholder_text):
 		entry_widget = event.widget
 		if entry_widget.get() == placeholder_text:
@@ -264,7 +266,6 @@ class ImageLayoutApp:
 				self.secondary_windows[-1].deiconify()
 			else:
 				self.root.deiconify()
-
 
 	def generate_pdf(self):
 		
@@ -357,8 +358,6 @@ class ImageLayoutApp:
 
 		pdf_thread = threading.Thread(target=generate_pdf_worker)
 		pdf_thread.start()
-
-
 
 	def generate_pdf_filename(self):
 		now = datetime.datetime.now()
