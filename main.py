@@ -6,6 +6,9 @@ import datetime
 import threading
 import webbrowser
 import os
+from pyupdater.client import Client
+from client_config import ClientConfig
+
 
 class ImageLayoutApp:
 	def __init__(self, root):
@@ -48,6 +51,33 @@ class ImageLayoutApp:
 		# Pulsante per aprire la finestra di modello
 		open_model_button = ttk.Button(main_frame, text="Apri Finestra di Modello", command=self.open_model_window)
 		open_model_button.grid(row=1, column=0, columnspan=2, pady=10)
+
+		# Crea una barra dei menu
+		menu_bar = tk.Menu(self.root)
+		self.root.config(menu=menu_bar)
+
+		# Crea un menu "File" e aggiungilo alla barra dei menu
+		file_menu = tk.Menu(menu_bar, tearoff=0)
+		menu_bar.add_cascade(label="File", menu=file_menu)
+
+		# Aggiungi una voce "Controllo aggiornamenti" al menu "File"
+		file_menu.add_command(label="Controllo aggiornamenti", command=self.check_for_updates)
+
+
+	def check_for_updates(self):
+		client = Client(ClientConfig())
+		client.refresh()
+
+		app_update = client.update_check(ClientConfig.APP_NAME, ClientConfig.APP_VERSION)
+
+		if app_update:
+			result = messagebox.askyesno("Aggiornamento disponibile", "È disponibile un nuovo aggiornamento. Vuoi scaricarlo?")
+			if result:
+				app_update.download()
+				if app_update.is_downloaded():
+					app_update.extract_restart()
+		else:
+			messagebox.showinfo("Nessun aggiornamento", "Stai utilizzando l'ultima versione dell'applicazione.")
 
 
 	def open_model_window(self):
