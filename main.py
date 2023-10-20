@@ -219,11 +219,11 @@ class ImageLayoutApp:
 		icon_width = 30
 		icon_height = 30
 
-		original_icon_home = Image.open("icon/home.png").convert("RGBA")
+		original_icon_home = Image.open("img/home.png").convert("RGBA")
 		resized_icon_home = original_icon_home.resize((icon_width, icon_height), Image.LANCZOS)
 		self.icon_home = ImageTk.PhotoImage(resized_icon_home)
 
-		original_icon_back = Image.open("icon/back.png")
+		original_icon_back = Image.open("img/back.png")
 		resized_icon_back = original_icon_back.resize((icon_width, icon_height), Image.LANCZOS)
 		self.icon_back = ImageTk.PhotoImage(resized_icon_back)
 
@@ -363,7 +363,9 @@ class ImageLayoutApp:
 		now = datetime.datetime.now()
 		timestamp = now.strftime("%Y-%m-%d_%H-%M-%S")
 		layout = self.layout_var.get()
-		pdf_folder = "pdf"  # Nome della cartella in cui salvare il PDF
+		pdf_folder = "pdf"  # Nome della cartella in cui salvare il PDF.
+		if not os.path.exists(pdf_folder):
+			os.makedirs(pdf_folder)
 		pdf_filename = f"{timestamp}_{layout}_output.pdf"
 		pdf_path = os.path.join(pdf_folder, pdf_filename)  # Unisci il percorso della cartella e il nome del file
 		return pdf_path
