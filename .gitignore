@@ -175,4 +175,3 @@ pyrightconfig.json
 .vscode/
 
 *.pdf
-__pycache__/*
